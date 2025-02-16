@@ -1,253 +1,165 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Servo Motor Control</title>
-    <style>
-        :root {
-            --knob-color: #333333;
-            --tick-color: #666666;
-            --pointer-color: white;
-            --knob-size: 45vh;
-        }
+import React, { useState, useRef, useEffect } from 'react';
 
-        body {
-            background-color: white;
-            margin: 0;
-            padding: 20px;
-            font-family: Arial, sans-serif;
-        }
+const ServoControls = () => {
+  const [servoAngles, setServoAngles] = useState([0, 0, 0, 0, 0]);
+  const knobRefs = useRef([]);
 
-        .container {
-            max-width: 100%;
-            margin: 0 auto;
-            padding: 10px;
-        }
+  // Convert angle to percentage (0-100)
+  const angleToPercentage = (angle) => {
+    return Math.round(((angle + 120) / 240) * 100);
+  };
 
-        .controls-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 30px;
-            padding: 10px;
-        }
+  // Generate tick marks
+  const generateTicks = () => {
+    const ticks = [];
+    for (let i = -120; i <= 120; i += 5) {
+      const isMainTick = i % 30 === 0;
+      const tickLength = isMainTick ? 8 : 5;
+      const radians = ((i + 120) * Math.PI) / 180;
+      const innerRadius = 42;
+      const outerRadius = innerRadius + tickLength;
+      
+      const x1 = innerRadius * Math.cos(radians);
+      const y1 = innerRadius * Math.sin(radians);
+      const x2 = outerRadius * Math.cos(radians);
+      const y2 = outerRadius * Math.sin(radians);
+      
+      ticks.push(
+        <line
+          key={i}
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
+          className={`stroke-purple-300 ${isMainTick ? 'stroke-2' : 'stroke-1'}`}
+          strokeLinecap="round"
+        />
+      );
 
-        .control-unit {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-        }
+      // Add percentage labels for main ticks
+      if (isMainTick) {
+        const labelRadius = outerRadius + 8;
+        const percentage = Math.round(((i + 120) / 240) * 100);
+        ticks.push(
+          <text
+            key={`label-${i}`}
+            x={labelRadius * Math.cos(radians)}
+            y={labelRadius * Math.sin(radians)}
+            className="text-xs fill-purple-400 font-medium"
+            textAnchor="middle"
+            dominantBaseline="middle"
+          >
+            {percentage}
+          </text>
+        );
+      }
+    }
+    return ticks;
+  };
 
-        .knob-container {
-            position: relative;
-            width: var(--knob-size);
-            height: var(--knob-size);
-            margin: 20px auto;
-        }
+  const handleMouseDown = (index, e) => {
+    const knob = knobRefs.current[index];
+    const rect = knob.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
 
-        /* Main knob */
-        .knob {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            background: var(--knob-color);
-            position: relative;
-            cursor: pointer;
-        }
+    const handleMouseMove = (e) => {
+      const deltaX = e.clientX - centerX;
+      const deltaY = e.clientY - centerY;
+      let angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+      
+      angle = (angle + 360) % 360;
+      if (angle > 120 && angle < 240) {
+        angle = 120;
+      } else if (angle >= 240) {
+        angle = -120;
+      }
 
-        /* Tick marks */
-        .ticks {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-        }
+      const newAngles = [...servoAngles];
+      newAngles[index] = angle;
+      setServoAngles(newAngles);
+    };
 
-        .tick {
-            position: absolute;
-            width: 2px;
-            height: 15px;
-            background: var(--tick-color);
-            left: 50%;
-            transform-origin: 50% calc(var(--knob-size) / 2);
-        }
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
 
-        /* White pointer */
-        .pointer {
-            position: absolute;
-            width: 3px;
-            height: 20px;
-            background: var(--pointer-color);
-            left: 50%;
-            top: 0;
-            transform: translateX(-50%);
-        }
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
 
-        .angle-display {
-            margin-top: 15px;
-            font-size: 1.5em;
-            font-weight: bold;
-        }
+  const handleReset = () => {
+    setServoAngles([0, 0, 0, 0, 0]);
+  };
 
-        .reset-button {
-            background: #444;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 5px;
-            font-size: 1.2em;
-            cursor: pointer;
-            margin: 20px auto;
-            display: block;
-        }
-
-        @media (min-width: 768px) {
-            .controls-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            :root {
-                --knob-size: 35vh;
-            }
-        }
-
-        @media (min-width: 1200px) {
-            .controls-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-            :root {
-                --knob-size: 30vh;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="controls-grid">
-            <div class="control-unit">
-                <h3>Servo 1</h3>
-                <div class="knob-container">
-                    <div class="knob" data-servo="1">
-                        <div class="ticks" id="ticks-1"></div>
-                        <div class="pointer"></div>
-                    </div>
-                </div>
-                <div class="angle-display">0°</div>
+  return (
+    <div className="min-h-screen bg-gray-100 p-8">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold text-purple-800 mb-8">Servo Motor Controls</h1>
+        
+        <div className="grid grid-cols-2 gap-8">
+          {servoAngles.map((angle, index) => (
+            <div key={index} className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
+              <h2 className="text-xl font-semibold text-purple-600 mb-4">Servo {index + 1}</h2>
+              <div className="relative w-64 h-64">
+                <svg 
+                  viewBox="-60 -60 120 120" 
+                  className="w-full h-full"
+                >
+                  {/* Tick marks */}
+                  <g>{generateTicks()}</g>
+                  
+                  {/* Knob with gradient */}
+                  <defs>
+                    <radialGradient id={`knobGradient${index}`}>
+                      <stop offset="0%" stopColor="#F3E8FF" /> {/* purple-100 */}
+                      <stop offset="100%" stopColor="#A855F7" /> {/* purple-500 */}
+                    </radialGradient>
+                  </defs>
+                  
+                  <g
+                    ref={el => knobRefs.current[index] = el}
+                    transform={`rotate(${angle})`}
+                    onMouseDown={(e) => handleMouseDown(index, e)}
+                    className="cursor-grab"
+                  >
+                    <circle
+                      r="35"
+                      fill={`url(#knobGradient${index})`}
+                      className="drop-shadow-lg"
+                    />
+                    {/* Indicator dot */}
+                    <circle
+                      cy="-30"
+                      r="3"
+                      className="fill-white"
+                    />
+                  </g>
+                  
+                  {/* Current percentage display */}
+                  <text
+                    className="text-lg font-bold fill-purple-800"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                  >
+                    {angleToPercentage(angle)}%
+                  </text>
+                </svg>
+              </div>
             </div>
-            
-            <!-- Repeat for other servos... -->
-            <div class="control-unit">
-                <h3>Servo 2</h3>
-                <div class="knob-container">
-                    <div class="knob" data-servo="2">
-                        <div class="ticks" id="ticks-2"></div>
-                        <div class="pointer"></div>
-                    </div>
-                </div>
-                <div class="angle-display">0°</div>
-            </div>
-            
-            <!-- Add servos 3-5 with the same structure -->
+          ))}
         </div>
-
-        <button class="reset-button">Reset All Servos</button>
+        
+        <button
+          onClick={handleReset}
+          className="mt-8 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          Reset All Servos
+        </button>
+      </div>
     </div>
+  );
+};
 
-    <script>
-        // Create tick marks programmatically
-        function createTicks(ticksContainer) {
-            for (let i = 0; i < 72; i++) { // 72 ticks for 5-degree intervals
-                const tick = document.createElement('div');
-                tick.className = 'tick';
-                tick.style.transform = `rotate(${i * 5}deg)`;
-                ticksContainer.appendChild(tick);
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // Create ticks for each knob
-            document.querySelectorAll('.ticks').forEach(createTicks);
-
-            const knobs = document.querySelectorAll('.knob');
-            const resetButton = document.querySelector('.reset-button');
-            
-            knobs.forEach(knob => {
-                let isDragging = false;
-                let currentRotation = 0;
-                let startAngle = 0;
-
-                knob.addEventListener('mousedown', startRotating);
-                knob.addEventListener('touchstart', startRotating);
-                document.addEventListener('mousemove', rotate);
-                document.addEventListener('touchmove', rotate);
-                document.addEventListener('mouseup', stopRotating);
-                document.addEventListener('touchend', stopRotating);
-
-                function startRotating(e) {
-                    isDragging = true;
-                    const bbox = knob.getBoundingClientRect();
-                    const center = {
-                        x: bbox.left + bbox.width / 2,
-                        y: bbox.top + bbox.height / 2
-                    };
-                    startAngle = calculateAngle(e, center) - currentRotation;
-                    e.preventDefault();
-                }
-
-                function rotate(e) {
-                    if (!isDragging) return;
-
-                    const bbox = knob.getBoundingClientRect();
-                    const center = {
-                        x: bbox.left + bbox.width / 2,
-                        y: bbox.top + bbox.height / 2
-                    };
-
-                    let angle = calculateAngle(e, center) - startAngle;
-                    angle = Math.max(0, Math.min(180, angle));
-                    
-                    currentRotation = angle;
-                    knob.style.transform = `rotate(${angle}deg)`;
-                    
-                    const display = knob.closest('.control-unit').querySelector('.angle-display');
-                    display.textContent = `${Math.round(angle)}°`;
-                    
-                    const servoId = knob.dataset.servo;
-                    sendToServo(servoId, angle);
-                }
-
-                function stopRotating() {
-                    isDragging = false;
-                }
-
-                function calculateAngle(e, center) {
-                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                    
-                    const angle = Math.atan2(
-                        clientY - center.y,
-                        clientX - center.x
-                    ) * 180 / Math.PI + 90;
-                    
-                    return (angle + 360) % 360;
-                }
-            });
-
-            resetButton.addEventListener('click', () => {
-                knobs.forEach(knob => {
-                    knob.style.transform = 'rotate(0deg)';
-                    const display = knob.closest('.control-unit').querySelector('.angle-display');
-                    display.textContent = '0°';
-                    const servoId = knob.dataset.servo;
-                    sendToServo(servoId, 0);
-                });
-            });
-
-            function sendToServo(servoId, angle) {
-                console.log(`Sending to servo ${servoId}: ${angle}°`);
-            }
-        });
-    </script>
-</body>
-</html>
+export default ServoControls;
