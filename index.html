@@ -1,9 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from "react";
 
 const ServoControls = () => {
   const [servoAngles, setServoAngles] = useState([0, 0, 0, 0, 0]);
-  const knobRefs = useRef([]);
-  const isDragging = useRef(false);
+  const knobRefs = useRef(Array(5).fill(null)); // Initialize refs properly
 
   const angleToPercentage = (angle) => {
     return Math.round(((angle + 120) / 240) * 100);
@@ -13,30 +12,30 @@ const ServoControls = () => {
     const ticks = [];
     for (let i = -120; i <= 120; i += 5) {
       const isMainTick = i % 30 === 0;
-      const tickLength = isMainTick ? 8 : 5;
+      const tickLength = isMainTick ? 6 : 4;
       const radians = ((i + 120) * Math.PI) / 180;
       const innerRadius = 42;
       const outerRadius = innerRadius + tickLength;
-      
+
       const x1 = innerRadius * Math.cos(radians);
       const y1 = innerRadius * Math.sin(radians);
       const x2 = outerRadius * Math.cos(radians);
       const y2 = outerRadius * Math.sin(radians);
-      
+
       ticks.push(
         <line
-          key={`tick-${i}`}
+          key={i}
           x1={x1}
           y1={y1}
           x2={x2}
           y2={y2}
-          className={`stroke-purple-200 ${isMainTick ? 'stroke-2' : 'stroke-1'}`}
+          className={`stroke-purple-200 ${isMainTick ? "stroke-1" : "stroke-[0.5]"}`}
           strokeLinecap="round"
         />
       );
 
       if (isMainTick) {
-        const labelRadius = outerRadius + 8;
+        const labelRadius = outerRadius + 6;
         const percentage = Math.round(((i + 120) / 240) * 100);
         ticks.push(
           <text
@@ -58,39 +57,39 @@ const ServoControls = () => {
   const handleMouseDown = (index, e) => {
     e.preventDefault();
     const knob = knobRefs.current[index];
-    if (!knob) return;
-
-    isDragging.current = true;
+    if (!knob) return; // Ensure the knob ref exists
     const rect = knob.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
 
     const handleMouseMove = (e) => {
-      if (!isDragging.current) return;
-
       const deltaX = e.clientX - centerX;
       const deltaY = e.clientY - centerY;
       let angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-      
-      // Normalize angle to -180 to 180 range
-      angle = angle > 180 ? angle - 360 : angle;
-      
-      // Constrain angle between -120 and 120
-      angle = Math.max(-120, Math.min(120, angle));
 
-      const newAngles = [...servoAngles];
-      newAngles[index] = angle;
-      setServoAngles(newAngles);
+      angle = (angle + 360) % 360; // Normalize angle to 0-360
+
+      // Clamp angle between -120° and 120°
+      if (angle > 120 && angle < 240) {
+        angle = 120;
+      } else if (angle >= 240) {
+        angle = -120;
+      }
+
+      setServoAngles((prev) => {
+        const newAngles = [...prev];
+        newAngles[index] = angle;
+        return newAngles;
+      });
     };
 
     const handleMouseUp = () => {
-      isDragging.current = false;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   };
 
   const handleReset = () => {
@@ -98,47 +97,40 @@ const ServoControls = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-purple-800 mb-6">Servo Controls</h1>
-        
-        <div className="grid grid-cols-2 gap-6">
+        <h1 className="text-2xl font-bold text-purple-600 mb-6">Servo Motor Controls</h1>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {servoAngles.map((angle, index) => (
             <div key={index} className="bg-white p-4 rounded-lg shadow-md flex flex-col items-center">
-              <h2 className="text-lg font-semibold text-purple-600 mb-2">Servo {index + 1}</h2>
-              <div className="relative w-48 h-48">
-                <svg 
-                  viewBox="-60 -60 120 120" 
-                  className="w-full h-full"
-                >
-                  <g>{generateTicks()}</g>
-                  
+              <h2 className="text-lg font-semibold text-purple-400 mb-3">Servo {index + 1}</h2>
+              <div className="relative w-48 h-48 md:w-64 md:h-64">
+                <svg viewBox="-60 -60 120 120" className="w-full h-full">
                   <defs>
                     <radialGradient id={`knobGradient${index}`}>
-                      <stop offset="0%" stopColor="#F5F3FF" />
-                      <stop offset="100%" stopColor="#C4B5FD" />
+                      <stop offset="0%" stopColor="#FAF5FF" />
+                      <stop offset="100%" stopColor="#E9D5FF" />
                     </radialGradient>
                   </defs>
-                  
+
+                  <g>{generateTicks()}</g>
+
+                  {/* Knob Group */}
                   <g
-                    ref={el => knobRefs.current[index] = el}
+                    ref={(el) => (knobRefs.current[index] = el)}
                     transform={`rotate(${angle})`}
                     onMouseDown={(e) => handleMouseDown(index, e)}
-                    className="cursor-grab active:cursor-grabbing"
+                    className="cursor-grab"
                   >
-                    <circle
-                      r="35"
-                      fill={`url(#knobGradient${index})`}
-                      className="drop-shadow"
-                    />
-                    <circle
-                      cy="-30"
-                      r="2.5"
-                      className="fill-white"
-                    />
+                    <circle r="35" fill={`url(#knobGradient${index})`} className="drop-shadow" />
+                    <circle cy="-30" r="2" className="fill-purple-400" />
                   </g>
-                  
+
+                  {/* Angle Percentage Label */}
                   <text
+                    x="0"
+                    y="0"
                     className="text-sm font-medium fill-purple-400"
                     textAnchor="middle"
                     dominantBaseline="middle"
@@ -150,12 +142,12 @@ const ServoControls = () => {
             </div>
           ))}
         </div>
-        
+
         <button
           onClick={handleReset}
-          className="mt-6 px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors"
+          className="mt-6 px-4 py-2 bg-purple-400 text-white rounded-md hover:bg-purple-500 transition-colors"
         >
-          Reset All
+          Reset All Servos
         </button>
       </div>
     </div>
