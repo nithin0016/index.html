@@ -1,157 +1,104 @@
-import React, { useState, useRef } from "react";
-
-const ServoControls = () => {
-  const [servoAngles, setServoAngles] = useState([0, 0, 0, 0, 0]);
-  const knobRefs = useRef(Array(5).fill(null)); // Initialize refs properly
-
-  const angleToPercentage = (angle) => {
-    return Math.round(((angle + 120) / 240) * 100);
-  };
-
-  const generateTicks = () => {
-    const ticks = [];
-    for (let i = -120; i <= 120; i += 5) {
-      const isMainTick = i % 30 === 0;
-      const tickLength = isMainTick ? 6 : 4;
-      const radians = ((i + 120) * Math.PI) / 180;
-      const innerRadius = 42;
-      const outerRadius = innerRadius + tickLength;
-
-      const x1 = innerRadius * Math.cos(radians);
-      const y1 = innerRadius * Math.sin(radians);
-      const x2 = outerRadius * Math.cos(radians);
-      const y2 = outerRadius * Math.sin(radians);
-
-      ticks.push(
-        <line
-          key={i}
-          x1={x1}
-          y1={y1}
-          x2={x2}
-          y2={y2}
-          className={`stroke-purple-200 ${isMainTick ? "stroke-1" : "stroke-[0.5]"}`}
-          strokeLinecap="round"
-        />
-      );
-
-      if (isMainTick) {
-        const labelRadius = outerRadius + 6;
-        const percentage = Math.round(((i + 120) / 240) * 100);
-        ticks.push(
-          <text
-            key={`label-${i}`}
-            x={labelRadius * Math.cos(radians)}
-            y={labelRadius * Math.sin(radians)}
-            className="text-[10px] fill-purple-300 font-medium"
-            textAnchor="middle"
-            dominantBaseline="middle"
-          >
-            {percentage}
-          </text>
-        );
-      }
-    }
-    return ticks;
-  };
-
-  const handleMouseDown = (index, e) => {
-    e.preventDefault();
-    const knob = knobRefs.current[index];
-    if (!knob) return; // Ensure the knob ref exists
-    const rect = knob.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-
-    const handleMouseMove = (e) => {
-      const deltaX = e.clientX - centerX;
-      const deltaY = e.clientY - centerY;
-      let angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-
-      angle = (angle + 360) % 360; // Normalize angle to 0-360
-
-      // Clamp angle between -120° and 120°
-      if (angle > 120 && angle < 240) {
-        angle = 120;
-      } else if (angle >= 240) {
-        angle = -120;
-      }
-
-      setServoAngles((prev) => {
-        const newAngles = [...prev];
-        newAngles[index] = angle;
-        return newAngles;
-      });
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  };
-
-  const handleReset = () => {
-    setServoAngles([0, 0, 0, 0, 0]);
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-purple-600 mb-6">Servo Motor Controls</h1>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {servoAngles.map((angle, index) => (
-            <div key={index} className="bg-white p-4 rounded-lg shadow-md flex flex-col items-center">
-              <h2 className="text-lg font-semibold text-purple-400 mb-3">Servo {index + 1}</h2>
-              <div className="relative w-48 h-48 md:w-64 md:h-64">
-                <svg viewBox="-60 -60 120 120" className="w-full h-full">
-                  <defs>
-                    <radialGradient id={`knobGradient${index}`}>
-                      <stop offset="0%" stopColor="#FAF5FF" />
-                      <stop offset="100%" stopColor="#E9D5FF" />
-                    </radialGradient>
-                  </defs>
-
-                  <g>{generateTicks()}</g>
-
-                  {/* Knob Group */}
-                  <g
-                    ref={(el) => (knobRefs.current[index] = el)}
-                    transform={`rotate(${angle})`}
-                    onMouseDown={(e) => handleMouseDown(index, e)}
-                    className="cursor-grab"
-                  >
-                    <circle r="35" fill={`url(#knobGradient${index})`} className="drop-shadow" />
-                    <circle cy="-30" r="2" className="fill-purple-400" />
-                  </g>
-
-                  {/* Angle Percentage Label */}
-                  <text
-                    x="0"
-                    y="0"
-                    className="text-sm font-medium fill-purple-400"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                  >
-                    {angleToPercentage(angle)}%
-                  </text>
-                </svg>
-              </div>
-            </div>
-          ))}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knob & Slider Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .control-container {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 50px;
+        }
+        .control {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .knob {
+            width: 60px;
+            height: 60px;
+            background-color: lightgray;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+        }
+        .slider {
+            width: 100px;
+            margin-top: 20px;
+        }
+        button {
+            margin-top: 30px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Knob & Slider Control</h1>
+    <div class="control-container">
+        <div class="control">
+            <div class="knob" id="knob1">🔵</div>
+            <input type="range" id="slider1" class="slider" min="0" max="90" value="45">
+            <label>Servo 1: <span id="value1">45</span>°</label>
         </div>
-
-        <button
-          onClick={handleReset}
-          className="mt-6 px-4 py-2 bg-purple-400 text-white rounded-md hover:bg-purple-500 transition-colors"
-        >
-          Reset All Servos
-        </button>
-      </div>
+        <div class="control">
+            <div class="knob" id="knob2">🔵</div>
+            <input type="range" id="slider2" class="slider" min="0" max="90" value="45">
+            <label>Servo 2: <span id="value2">45</span>°</label>
+        </div>
+        <div class="control">
+            <div class="knob" id="knob3">🔵</div>
+            <input type="range" id="slider3" class="slider" min="0" max="90" value="45">
+            <label>Servo 3: <span id="value3">45</span>°</label>
+        </div>
     </div>
-  );
-};
+    <button id="reset">Reset</button>
 
-export default ServoControls;
+    <script>
+        function setupControl(knobId, sliderId, valueId) {
+            const knob = document.getElementById(knobId);
+            const slider = document.getElementById(sliderId);
+            const valueDisplay = document.getElementById(valueId);
+            
+            slider.addEventListener('input', function () {
+                valueDisplay.textContent = this.value;
+            });
+
+            knob.addEventListener('mousedown', function () {
+                document.addEventListener('mousemove', rotateKnob);
+                document.addEventListener('mouseup', stopRotate);
+            });
+
+            function rotateKnob(event) {
+                let angle = Math.max(0, Math.min(90, event.clientX % 100));
+                slider.value = angle;
+                valueDisplay.textContent = angle;
+            }
+
+            function stopRotate() {
+                document.removeEventListener('mousemove', rotateKnob);
+                document.removeEventListener('mouseup', stopRotate);
+            }
+        }
+
+        setupControl("knob1", "slider1", "value1");
+        setupControl("knob2", "slider2", "value2");
+        setupControl("knob3", "slider3", "value3");
+
+        document.getElementById("reset").addEventListener("click", function () {
+            ["slider1", "slider2", "slider3"].forEach(id => {
+                document.getElementById(id).value = 0;
+                document.getElementById("value" + id.slice(-1)).textContent = 0;
+            });
+        });
+    </script>
+</body>
+</html>
