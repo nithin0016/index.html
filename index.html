@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -29,4 +29,91 @@
             align-items: center;
             justify-content: center;
             cursor: grab;
-            position: relative
+            position: relative;
+            transform-origin: center;
+        }
+        .slider {
+            width: 100px;
+            margin-top: 20px;
+        }
+        button {
+            margin-top: 30px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Knob & Slider Control</h1>
+    <div class="control-container">
+        <div class="control">
+            <div class="knob" id="knob1" style="transform: rotate(45deg);">🔵</div>
+            <input type="range" id="slider1" class="slider" min="0" max="90" value="45">
+            <label>Servo 1: <span id="value1">45</span>°</label>
+        </div>
+        <div class="control">
+            <div class="knob" id="knob2" style="transform: rotate(45deg);">🔵</div>
+            <input type="range" id="slider2" class="slider" min="0" max="90" value="45">
+            <label>Servo 2: <span id="value2">45</span>°</label>
+        </div>
+        <div class="control">
+            <div class="knob" id="knob3" style="transform: rotate(45deg);">🔵</div>
+            <input type="range" id="slider3" class="slider" min="0" max="90" value="45">
+            <label>Servo 3: <span id="value3">45</span>°</label>
+        </div>
+    </div>
+    <button id="reset">Reset</button>
+
+    <script>
+        function setupControl(knobId, sliderId, valueId) {
+            const knob = document.getElementById(knobId);
+            const slider = document.getElementById(sliderId);
+            const valueDisplay = document.getElementById(valueId);
+
+            slider.addEventListener('input', function () {
+                let angle = this.value;
+                knob.style.transform = `rotate(${angle}deg)`;
+                valueDisplay.textContent = angle;
+            });
+
+            knob.addEventListener('mousedown', function (event) {
+                event.preventDefault();
+                document.addEventListener('mousemove', rotateKnob);
+                document.addEventListener('mouseup', stopRotate);
+            });
+
+            function rotateKnob(event) {
+                let rect = knob.getBoundingClientRect();
+                let centerX = rect.left + rect.width / 2;
+                let centerY = rect.top + rect.height / 2;
+                let dx = event.clientX - centerX;
+                let dy = event.clientY - centerY;
+                let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+
+                angle = Math.max(0, Math.min(90, angle)); // Limit rotation between 0 and 90 degrees
+
+                knob.style.transform = `rotate(${angle}deg)`;
+                slider.value = angle;
+                valueDisplay.textContent = Math.round(angle);
+            }
+
+            function stopRotate() {
+                document.removeEventListener('mousemove', rotateKnob);
+                document.removeEventListener('mouseup', stopRotate);
+            }
+        }
+
+        setupControl("knob1", "slider1", "value1");
+        setupControl("knob2", "slider2", "value2");
+        setupControl("knob3", "slider3", "value3");
+
+        document.getElementById("reset").addEventListener("click", function () {
+            ["slider1", "slider2", "slider3"].forEach(id => {
+                document.getElementById(id).value = 0;
+                document.getElementById("value" + id.slice(-1)).textContent = 0;
+                document.getElementById("knob" + id.slice(-1)).style.transform = "rotate(0deg)";
+            });
+        });
+    </script>
+</body>
+</html>
